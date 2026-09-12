@@ -1,0 +1,139 @@
+name: ITDOApp
+options:
+  bundleIdPrefix: ru.bleyzos.itdo
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+    MARKETING_VERSION: 1.0.0
+    CURRENT_PROJECT_VERSION: 4
+    TARGETED_DEVICE_FAMILY: "1,2"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+
+targets:
+  ITDOApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: ITDOApp
+    dependencies:
+      # Встраивает ShareExtension.appex в .app/PlugIns — без этого таргет
+      # расширения мог бы существовать и даже собираться, но не попадал бы
+      # в финальный .ipa и физически не мог бы появиться в системном шите
+      # "Поделиться" на устройстве.
+      - target: ShareExtension
+        embed: true
+      # То же самое для виджета: без embed ITDOAppWidgetExtension.appex не
+      # попадёт в PlugIns финального .ipa и не появится в системном пикере
+      # виджетов на устройстве.
+      - target: ITDOAppWidget
+        embed: true
+    info:
+      path: ITDOApp/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: ru
+        CFBundleDisplayName: ITDO
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIViewControllerBasedStatusBarAppearance: false
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        # URL scheme для диплинков из виджета (itdo://chat/<id>, itdo://call/<id>).
+        # Обработку (onOpenURL) нужно добавить в ITDOApp.swift отдельно —
+        # сама схема пока никуда не роутится, только зарегистрирована в системе.
+        CFBundleURLTypes:
+          - CFBundleURLName: ru.bleyzos.itdo.app
+            CFBundleURLSchemes:
+              - itdo
+        # xcodegen регенерирует Info.plist целиком из этих properties при
+        # каждом "xcodegen generate" — ручные правки прямо в ITDOApp/Info.plist
+        # затираются и НЕ попадают в сборку (так уже терялись ключи ниже:
+        # NSExceptionDomains, микрофон/фото/камера, Face ID). Поэтому все
+        # кастомные ключи плиста должны жить здесь, а не в самом файле.
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            itdo.bleyzos.ru:
+              NSExceptionAllowsInsecureHTTPLoads: false
+              NSIncludesSubdomains: true
+        NSMicrophoneUsageDescription: "Нужен для записи голосовых сообщений"
+        NSPhotoLibraryUsageDescription: "Нужна для прикрепления фото к сообщениям и постам"
+        NSCameraUsageDescription: "Нужна для съёмки фото и видео"
+        NSFaceIDUsageDescription: "Используется как быстрая альтернатива вводу код-пароля приложения"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.bleyzos.itdo.app
+        GENERATE_INFOPLIST_FILE: false
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGN_IDENTITY: ""
+        DEVELOPMENT_TEAM: ""
+        # App Group нужен, чтобы основное приложение могло прочитать текст,
+        # который ShareExtension положит в общий контейнер (см.
+        # ITDOApp/Utilities/SharedContainer.swift), и чтобы писать данные
+        # для виджета (см. ITDOApp/Utilities/WidgetDataWriter.swift).
+        # Сам App Group ("group.ru.bleyzos.itdo") нужно ЕЩЁ создать/включить
+        # в Apple Developer аккаунте и в Xcode → Signing & Capabilities для
+        # ВСЕХ трёх таргетов — xcodegen прописывает entitlements-файл, но не
+        # создаёт capability на портале Apple.
+        CODE_SIGN_ENTITLEMENTS: ITDOApp/ITDOApp.entitlements
+        # WebRTC: добавить через CocoaPods (pod install) или скачать фреймворк
+        # и положить в папку ITDOApp/Frameworks/ перед билдом.
+        # CallKit — системный фреймворк, линкуется автоматически при импорте.
+
+  ShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+    info:
+      path: ShareExtension/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.bleyzos.itdo.app.share
+        PRODUCT_NAME: ShareExtension
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_FILE: ShareExtension/Info.plist
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGN_IDENTITY: ""
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_ENTITLEMENTS: ShareExtension/ShareExtension.entitlements
+        SKIP_INSTALL: YES
+        # У app-extension обязателен собственный deployment target ≤ основного
+        # приложения — не задаём отдельно, наследуется из base (17.0).
+
+  ITDOAppWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ITDOAppWidget
+    info:
+      path: ITDOAppWidget/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.bleyzos.itdo.app.widget
+        PRODUCT_NAME: ITDOAppWidget
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_FILE: ITDOAppWidget/Info.plist
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGN_IDENTITY: ""
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_ENTITLEMENTS: ITDOAppWidget/ITDOAppWidget.entitlements
+        SKIP_INSTALL: YES
+        # У app-extension обязателен собственный deployment target ≤ основного
+        # приложения — не задаём отдельно, наследуется из base (17.0).
