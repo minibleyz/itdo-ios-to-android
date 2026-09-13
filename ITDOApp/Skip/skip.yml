@@ -1,0 +1,3 @@
+skip:
+  # Минимальная конфигурация Skip-транспиляции для таргета ITDOApp.
+  # См. https://skip.dev/docs/commands/#skipyml
