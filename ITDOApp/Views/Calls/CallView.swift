@@ -2,9 +2,9 @@ import SwiftUI
 
 /// Полноэкранный экран звонка — аудио или видео.
 struct CallView: View {
-    @StateObject private var rtc = WebRTCManager.shared
-    @EnvironmentObject private var session: SessionStore
-    @Environment(\.dismiss) private var dismiss
+    @StateObject var rtc = WebRTCManager.shared
+    @EnvironmentObject var session: SessionStore
+    @Environment(\.dismiss) var dismiss
     
     let conversation: Conversation
     
@@ -150,8 +150,6 @@ struct CallView: View {
     }
 }
 
-// MARK: - Video section (отдельный view чтобы не ломать #if canImport scope)
-
 private struct CallVideoSection: View {
     @ObservedObject var rtc: WebRTCManager
     
@@ -200,8 +198,6 @@ private struct CallVideoContent: View {
 }
 #endif
 
-// MARK: - Control button
-
 private struct CallControlButton: View {
     let icon: String
     let isActive: Bool
@@ -217,8 +213,6 @@ private struct CallControlButton: View {
         }
     }
 }
-
-// MARK: - Incoming call banner
 
 struct IncomingCallBanner: View {
     let callId: Int
