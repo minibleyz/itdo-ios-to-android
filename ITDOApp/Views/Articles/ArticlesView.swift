@@ -1,9 +1,9 @@
 import SwiftUI
 
 struct ArticlesView: View {
-    @State private var articles: [Article] = []
-    @State private var isLoading = false
-    @State private var errorMessage: String?
+    @State var articles: [Article] = []
+    @State var isLoading = false
+    @State var errorMessage: String?
 
     var body: some View {
         CompatNavigationStack {
@@ -76,10 +76,10 @@ struct ArticlesView: View {
 struct ArticleDetailView: View {
     let articleId: Int
 
-    @State private var article: Article?
-    @State private var isLiked = false
-    @State private var likesCount = 0
-    @State private var isLoading = false
+    @State var article: Article?
+    @State var isLiked = false
+    @State var likesCount = 0
+    @State var isLoading = false
 
     var body: some View {
         ScrollView {
