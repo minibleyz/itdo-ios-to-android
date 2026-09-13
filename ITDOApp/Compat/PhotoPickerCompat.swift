@@ -15,7 +15,9 @@ struct CompatPhotoPicker<Label: View>: View {
     let onPick: ([Data]) -> Void
     @ViewBuilder var label: () -> Label
 
-    @State private var showPicker = false
+    // Skip не может смостить private @State-свойство на Android —
+    // минимум internal (см. "Private state property cannot be bridged").
+    @State var showPicker = false
 
     var body: some View {
         Button {
