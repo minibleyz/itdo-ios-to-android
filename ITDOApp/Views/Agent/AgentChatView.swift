@@ -2,10 +2,10 @@ import SwiftUI
 import UIKit
 
 struct AgentChatView: View {
-    @StateObject private var viewModel = AgentChatViewModel()
-    @State private var showHistory = false
-    @State private var showSidebar = false
-    @State private var sidebarOpen = false
+    @StateObject var viewModel = AgentChatViewModel()
+    @State var showHistory = false
+    @State var showSidebar = false
+    @State var sidebarOpen = false
 
     private let suggestions = [
         "Придумай пост про запуск нового проекта",
@@ -383,7 +383,7 @@ struct AgentChatView: View {
         #endif
     }
 
-    @State private var showDelete: AgentConversation?
+    @State var showDelete: AgentConversation?
 }
 
 // Аватар: "AI" (градиент #0080FF→#8b5cf6) для ассистента, "Я" (серый) для пользователя.
@@ -535,7 +535,7 @@ struct MessageRow: View {
 // MARK: - Typing + caret
 
 struct TypingIndicator: View {
-    @State private var animate = false
+    @State var animate = false
 
     var body: some View {
         HStack(spacing: 5) {
@@ -559,7 +559,7 @@ struct TypingIndicator: View {
 }
 
 struct BlinkingCaret: View {
-    @State private var visible = true
+    @State var visible = true
 
     var body: some View {
         Text("▍")
@@ -578,10 +578,10 @@ struct BlinkingCaret: View {
 
 struct ConversationHistoryView: View {
     @ObservedObject var viewModel: AgentChatViewModel
-    @Environment(\.dismiss) private var dismiss
-    @State private var confirmDelete: AgentConversation?
-    @State private var renaming: AgentConversation?
-    @State private var renameText = ""
+    @Environment(\.dismiss) var dismiss
+    @State var confirmDelete: AgentConversation?
+    @State var renaming: AgentConversation?
+    @State var renameText = ""
 
     private var deleteBinding: Binding<Bool> {
         Binding(get: { confirmDelete != nil }, set: { _ in confirmDelete = nil })

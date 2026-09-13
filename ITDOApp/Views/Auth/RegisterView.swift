@@ -1,14 +1,14 @@
 import SwiftUI
 
 struct RegisterView: View {
-    @EnvironmentObject private var session: SessionStore
-    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var session: SessionStore
+    @Environment(\.dismiss) var dismiss
 
-    @State private var name = ""
-    @State private var username = ""
-    @State private var email = ""
-    @State private var password = ""
-    @State private var showCaptcha = false
+    @State var name = ""
+    @State var username = ""
+    @State var email = ""
+    @State var password = ""
+    @State var showCaptcha = false
 
     var body: some View {
         CompatNavigationStack {
@@ -58,8 +58,6 @@ struct RegisterView: View {
                             hcaptchaToken: token
                         )
                         if session.pendingUser != nil {
-                            // СНАЧАЛА закрываем sheet, ПОТОМ переключаем view.
-                            // Иначе LoginView удаляется из иерархии пока sheet ещё открыт → краш.
                             dismiss()
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                 session.completeRegistration()
