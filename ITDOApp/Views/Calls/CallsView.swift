@@ -122,7 +122,7 @@ struct CallsView: View {
     }
 }
 
-private struct CallRow: View {
+struct CallRow: View {
     let call: Call
 
     var body: some View {
