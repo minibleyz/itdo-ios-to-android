@@ -19,6 +19,16 @@ jobs:
           install-swift-android-sdk: 'true'
           verbose: 'true'
 
+      # Новый шаг: исправляем private на internal для View
+      - name: Fix private views for Skip
+        run: |
+          # Находим все Swift-файлы и заменяем private struct/var, связанные с View
+          # Это более точная замена, чем просто убрать все private
+          find . -name "*.swift" -type f -exec sed -i '' \
+            -e 's/private struct \([A-Za-z]*View\)/struct \1/g' \
+            -e 's/private var \([a-zA-Z]*\): some View/var \1: some View/g' \
+            {} \;
+
       - name: Export Android project
         run: skip export
 
