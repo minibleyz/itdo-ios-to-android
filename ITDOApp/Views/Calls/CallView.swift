@@ -150,7 +150,7 @@ struct CallView: View {
     }
 }
 
-private struct CallVideoSection: View {
+struct CallVideoSection: View {
     @ObservedObject var rtc: WebRTCManager
     
     var body: some View {
@@ -198,7 +198,7 @@ private struct CallVideoContent: View {
 }
 #endif
 
-private struct CallControlButton: View {
+struct CallControlButton: View {
     let icon: String
     let isActive: Bool
     let action: () -> Void
