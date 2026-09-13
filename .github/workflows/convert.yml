@@ -19,14 +19,26 @@ jobs:
           install-swift-android-sdk: 'true'
           verbose: 'true'
 
-      # Шаг 1: автоматически исправляем private View на internal
+      # Шаг 0: очищаем кеш Skip, чтобы он не использовал старые копии исходников
+      - name: Clean Skip cache
+        run: |
+          echo "🧹 Очищаем кеш Skip..."
+          rm -rf .build/plugins/outputs/ || true
+          rm -rf skip-export/ || true
+          echo "✅ Кеш очищен"
+
+      # Шаг 1: исправляем private View на internal
       - name: Fix private views for Skip
         run: |
           echo "🔍 Ищем private View для замены..."
           CHANGED=0
 
-          # Ищем все Swift-файлы, где есть private struct ...View или private var ...: some View
-          for file in $(find . -name "*.swift" -type f); do
+          # Исключаем ShareExtension и ITDOAppWidget — они не участвуют в Skip-экспорте
+          for file in $(find . -name "*.swift" -type f \
+            -not -path "./ShareExtension/*" \
+            -not -path "./ITDOAppWidget/*" \
+            -not -path "./.build/*"); do
+
             if grep -qE 'private (struct [A-Za-z0-9_]*View|var [a-zA-Z0-9_]+: some View)' "$file"; then
               echo "✏️  Исправляем: $file"
               # Убираем private у struct ...View
@@ -42,7 +54,11 @@ jobs:
           # Показываем, какие private View остались (если есть)
           echo ""
           echo "🔎 Проверка: остались ли private View?"
-          REMAINING=$(grep -rEn 'private (struct [A-Za-z0-9_]*View|var [a-zA-Z0-9_]+: some View)' --include="*.swift" . || true)
+          REMAINING=$(grep -rEn 'private (struct [A-Za-z0-9_]*View|var [a-zA-Z0-9_]+: some View)' \
+            --include="*.swift" \
+            --exclude-dir=".build" \
+            --exclude-dir="ShareExtension" \
+            --exclude-dir="ITDOAppWidget" . || true)
           if [ -n "$REMAINING" ]; then
             echo "⚠️  Всё ещё найдены private View:"
             echo "$REMAINING"
@@ -50,11 +66,20 @@ jobs:
             echo "👍 Приватных View не осталось"
           fi
 
-      # Шаг 2: запускаем экспорт
+      # Шаг 2: показываем diff, чтобы видеть, что изменилось
+      - name: Show changes made by fix
+        run: |
+          echo "📋 Изменения, внесённые скриптом:"
+          git diff --stat
+          echo ""
+          echo "📋 Подробный diff:"
+          git diff
+
+      # Шаг 3: запускаем экспорт
       - name: Export Android project
         run: skip export
 
-      # Шаг 3: загружаем результат
+      # Шаг 4: загружаем результат
       - name: Upload Android project
         uses: actions/upload-artifact@v4
         with:
