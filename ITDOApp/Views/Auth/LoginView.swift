@@ -1,13 +1,13 @@
 import SwiftUI
 
 struct LoginView: View {
-    @EnvironmentObject private var session: SessionStore
-    @State private var username = ""
-    @State private var password = ""
-    @State private var showRegister = false
-    @State private var showForgot = false
-    @State private var showCaptcha = false
-    @State private var mode: AuthMode = .login
+    @EnvironmentObject var session: SessionStore
+    @State var username = ""
+    @State var password = ""
+    @State var showRegister = false
+    @State var showForgot = false
+    @State var showCaptcha = false
+    @State var mode: AuthMode = .login
 
     enum AuthMode { case login, register }
 
@@ -16,18 +16,15 @@ struct LoginView: View {
             let isWide = geo.size.width >= 700
 
             HStack(spacing: 0) {
-                // ── ЛЕВАЯ КОЛОНКА (только на iPad / wide) ──────────────────
                 if isWide {
                     leftPanel
                         .frame(maxWidth: .infinity)
                 }
 
-                // ── ПРАВАЯ КОЛОНКА (форма) ──────────────────────────────────
                 ZStack {
                     DesignTokens.background.ignoresSafeArea()
                     ScrollView {
                         VStack(spacing: 0) {
-                            // На телефоне — лого сверху
                             if !isWide {
                                 mobileLogoHeader
                                     .padding(.bottom, 32)
@@ -58,11 +55,6 @@ struct LoginView: View {
                 Task { await session.login(username: username, password: password, hcaptchaToken: token) }
             }
         }
-        // Пароль/капча прошли, сервер попросил TOTP-код (2FA) — раньше это
-        // состояние было недостижимо: любой не-2xx ответ login.php тонул в
-        // generic-ошибке ("Ошибка сервера (401)"), а поля для ввода кода в
-        // приложении не было вовсе, так что войти с включённой 2FA было
-        // невозможно.
         .sheet(isPresented: Binding(
             get: { session.needsTotp },
             set: { if !$0 { session.cancelTotp() } }
@@ -72,14 +64,11 @@ struct LoginView: View {
         }
     }
 
-    // MARK: - Left panel (web 1:1, без градиента)
-
     private var leftPanel: some View {
         ZStack {
             DesignTokens.backgroundSecondary.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 28) {
-                // Логотип
                 VStack(alignment: .leading, spacing: 8) {
                     Text("ITDO")
                         .font(.system(size: 52, weight: .black, design: .rounded))
@@ -90,7 +79,6 @@ struct LoginView: View {
                         .lineSpacing(4)
                 }
 
-                // Буллиты
                 VStack(alignment: .leading, spacing: 16) {
                     FeatureBullet(icon: "heart.fill",
                                   text: "Лайкайте и делитесь интересным")
@@ -115,8 +103,6 @@ struct LoginView: View {
         )
     }
 
-    // MARK: - Mobile logo (phone only)
-
     private var mobileLogoHeader: some View {
         VStack(spacing: 6) {
             Text("ITDO")
@@ -130,11 +116,8 @@ struct LoginView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Auth form (login / register switcher)
-
     private var authForm: some View {
         VStack(alignment: .leading, spacing: 24) {
-            // Title
             VStack(alignment: .leading, spacing: 4) {
                 Text(mode == .login ? "С возвращением 👋" : "Создать аккаунт")
                     .font(.system(size: 26, weight: .black, design: .rounded))
@@ -144,7 +127,6 @@ struct LoginView: View {
                     .foregroundStyle(DesignTokens.textSecondary)
             }
 
-            // Error
             if let error = session.errorMessage {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.circle.fill")
@@ -163,7 +145,6 @@ struct LoginView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
-            // Fields
             VStack(spacing: 12) {
                 AuthField(placeholder: "Логин или Email", text: $username)
                     .textContentType(.username)
@@ -175,7 +156,6 @@ struct LoginView: View {
                     .textContentType(mode == .login ? .password : .newPassword)
             }
 
-            // Primary button
             Button {
                 if mode == .login {
                     showCaptcha = true
@@ -201,7 +181,6 @@ struct LoginView: View {
             }
             .disabled(username.isEmpty || password.isEmpty || session.isLoading)
 
-            // Forgot password
             if mode == .login {
                 Button {
                     showForgot = true
@@ -213,7 +192,6 @@ struct LoginView: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
-            // Switch
             HStack(spacing: 4) {
                 Text(mode == .login ? "Нет аккаунта?" : "Уже есть аккаунт?")
                     .foregroundStyle(DesignTokens.textSecondary)
@@ -236,8 +214,6 @@ struct LoginView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-// MARK: - Auth text field (1:1 с .input из веба)
 
 private struct AuthField: View {
     let placeholder: String
@@ -265,8 +241,6 @@ private struct AuthField: View {
     }
 }
 
-// MARK: - Feature bullet (левая колонка)
-
 private struct FeatureBullet: View {
     let icon: String
     let text: String
@@ -284,17 +258,15 @@ private struct FeatureBullet: View {
     }
 }
 
-// MARK: - Forgot Password View
-
 struct ForgotPasswordView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var step = 1 // 1 = enter username, 2 = enter code + new password
-    @State private var forgotUsername = ""
-    @State private var resetCode = ""
-    @State private var newPassword = ""
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-    @State private var successMessage: String?
+    @Environment(\.dismiss) var dismiss
+    @State var step = 1
+    @State var forgotUsername = ""
+    @State var resetCode = ""
+    @State var newPassword = ""
+    @State var isLoading = false
+    @State var errorMessage: String?
+    @State var successMessage: String?
 
     var body: some View {
         CompatNavigationStack {
@@ -302,7 +274,6 @@ struct ForgotPasswordView: View {
                 DesignTokens.background.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 20) {
-                        // Icon
                         Image(systemName: "key.fill")
                             .font(.system(size: 48))
                             .foregroundStyle(DesignTokens.accentPrimary)
@@ -321,7 +292,6 @@ struct ForgotPasswordView: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 20)
 
-                        // Error
                         if let error = errorMessage {
                             HStack(spacing: 8) {
                                 Image(systemName: "exclamationmark.circle.fill")
@@ -337,7 +307,6 @@ struct ForgotPasswordView: View {
                             .padding(.horizontal, 20)
                         }
 
-                        // Success
                         if let success = successMessage {
                             HStack(spacing: 8) {
                                 Image(systemName: "checkmark.circle.fill")
@@ -353,7 +322,6 @@ struct ForgotPasswordView: View {
                             .padding(.horizontal, 20)
                         }
 
-                        // Form
                         VStack(spacing: 14) {
                             if step == 1 {
                                 AuthField(placeholder: "Ваш логин", text: $forgotUsername)
@@ -466,15 +434,10 @@ struct ForgotPasswordView: View {
     LoginView().environmentObject(SessionStore())
 }
 
-// MARK: - TOTP sheet (2FA при входе)
-
-/// Показывается вместо login-сабмита, когда auth/login.php ответил
-/// {"two_factor_required": true} — то есть пароль верный, но у аккаунта
-/// включена двухфакторка (как в веб-версии /login.html).
 private struct TotpSheet: View {
-    @EnvironmentObject private var session: SessionStore
-    @Environment(\.dismiss) private var dismiss
-    @State private var code = ""
+    @EnvironmentObject var session: SessionStore
+    @Environment(\.dismiss) var dismiss
+    @State var code = ""
 
     var body: some View {
         NavigationStack {
@@ -548,9 +511,6 @@ private struct TotpSheet: View {
                 }
             }
         }
-        // Как только вход реально завершится (needsTotp сброшен в
-        // submitTotp), закрываем sheet — сам SessionStore выставит
-        // currentUser и приложение переключится на основной экран.
         .onChange(of: session.needsTotp) { stillNeeded in
             if !stillNeeded { dismiss() }
         }
