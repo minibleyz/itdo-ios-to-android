@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct CallsView: View {
-    @StateObject private var viewModel = CallsViewModel()
-    @State private var incomingCall: Call?
-    @State private var showCallView = false
-    @State private var selectedConversation: Conversation?
-    @State private var incomingPollingTask: Task<Void, Never>?
+    @StateObject var viewModel = CallsViewModel()
+    @State var incomingCall: Call?
+    @State var showCallView = false
+    @State var selectedConversation: Conversation?
+    @State var incomingPollingTask: Task<Void, Never>?
 
     var body: some View {
         CompatNavigationStack {
@@ -49,7 +49,6 @@ struct CallsView: View {
                 }
                 .refreshable { await viewModel.load() }
 
-                // Входящий звонок — баннер
                 if let incoming = incomingCall {
                     VStack {
                         IncomingCallBanner(
@@ -60,7 +59,6 @@ struct CallsView: View {
                                 Task {
                                     try? await APIClient.shared.answerCall(callId: incoming.id)
                                     incomingCall = nil
-                                    // Открываем экран звонка
                                     if let convId = incoming.conversationId as Int? {
                                         let convs = try? await APIClient.shared.fetchConversations()
                                         if let conv = convs?.conversations.first(where: { $0.id == convId }) {
@@ -228,13 +226,12 @@ private struct CallRow: View {
     }
 }
 
-/// Экран выбора контакта для звонка
 struct NewCallView: View {
-    @State private var query = ""
-    @State private var results: [SearchResult] = []
-    @State private var showCall = false
-    @State private var selectedConv: Conversation?
-    @Environment(\.dismiss) private var dismiss
+    @State var query = ""
+    @State var results: [SearchResult] = []
+    @State var showCall = false
+    @State var selectedConv: Conversation?
+    @Environment(\.dismiss) var dismiss
 
     var body: some View {
         CompatNavigationStack {
