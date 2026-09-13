@@ -19,67 +19,51 @@ jobs:
           install-swift-android-sdk: 'true'
           verbose: 'true'
 
-      # Шаг 0: очищаем кеш Skip, чтобы он не использовал старые копии исходников
       - name: Clean Skip cache
         run: |
-          echo "🧹 Очищаем кеш Skip..."
           rm -rf .build/plugins/outputs/ || true
           rm -rf skip-export/ || true
-          echo "✅ Кеш очищен"
 
-      # Шаг 1: исправляем private View на internal
-      - name: Fix private views for Skip
+      # Шаг 1: исправляем исходники в корне
+      - name: Fix private views in source
         run: |
-          echo "🔍 Ищем private View для замены..."
+          echo "🔍 Ищем private View в исходниках..."
           CHANGED=0
-
-          # Исключаем ShareExtension и ITDOAppWidget — они не участвуют в Skip-экспорте
-          for file in $(find . -name "*.swift" -type f \
-            -not -path "./ShareExtension/*" \
-            -not -path "./ITDOAppWidget/*" \
-            -not -path "./.build/*"); do
-
+          for file in $(find . -name "*.swift" -type f -not -path "./.build/*" -not -path "./ShareExtension/*" -not -path "./ITDOAppWidget/*"); do
             if grep -qE 'private (struct [A-Za-z0-9_]*View|var [a-zA-Z0-9_]+: some View)' "$file"; then
-              echo "✏️  Исправляем: $file"
-              # Убираем private у struct ...View
               perl -i -pe 's/\bprivate\s+(struct\s+\w*View)/$1/g' "$file"
-              # Убираем private у var ...: some View
               perl -i -pe 's/\bprivate\s+(var\s+\w+:\s*some\s+View)/$1/g' "$file"
               CHANGED=$((CHANGED + 1))
             fi
           done
+          echo "✅ Исправлено файлов в исходниках: $CHANGED"
 
-          echo "✅ Исправлено файлов: $CHANGED"
-
-          # Показываем, какие private View остались (если есть)
-          echo ""
-          echo "🔎 Проверка: остались ли private View?"
-          REMAINING=$(grep -rEn 'private (struct [A-Za-z0-9_]*View|var [a-zA-Z0-9_]+: some View)' \
-            --include="*.swift" \
-            --exclude-dir=".build" \
-            --exclude-dir="ShareExtension" \
-            --exclude-dir="ITDOAppWidget" . || true)
-          if [ -n "$REMAINING" ]; then
-            echo "⚠️  Всё ещё найдены private View:"
-            echo "$REMAINING"
-          else
-            echo "👍 Приватных View не осталось"
-          fi
-
-      # Шаг 2: показываем diff, чтобы видеть, что изменилось
-      - name: Show changes made by fix
-        run: |
-          echo "📋 Изменения, внесённые скриптом:"
-          git diff --stat
-          echo ""
-          echo "📋 Подробный diff:"
-          git diff
-
-      # Шаг 3: запускаем экспорт
-      - name: Export Android project
+      # Шаг 2: запускаем skip export (он скопирует исправленные исходники)
+      - name: Export Android project (first attempt)
+        continue-on-error: true
         run: skip export
 
-      # Шаг 4: загружаем результат
+      # Шаг 3: если упало — исправляем копии в .build и пробуем снова
+      - name: Fix private views in generated sources
+        if: failure()
+        run: |
+          echo "🔧 Исправляем private View в сгенерированных копиях..."
+          CHANGED=0
+          for file in $(find .build/plugins/outputs -name "*.swift" -type f 2>/dev/null); do
+            if grep -qE 'private (struct [A-Za-z0-9_]*View|var [a-zA-Z0-9_]+: some View)' "$file"; then
+              echo "✏️  Исправляем: $file"
+              perl -i -pe 's/\bprivate\s+(struct\s+\w*View)/$1/g' "$file"
+              perl -i -pe 's/\bprivate\s+(var\s+\w+:\s*some\s+View)/$1/g' "$file"
+              CHANGED=$((CHANGED + 1))
+            fi
+          done
+          echo "✅ Исправлено файлов в .build: $CHANGED"
+
+      # Шаг 4: повторяем экспорт
+      - name: Export Android project (retry)
+        if: failure()
+        run: skip export
+
       - name: Upload Android project
         uses: actions/upload-artifact@v4
         with:
