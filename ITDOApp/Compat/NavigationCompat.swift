@@ -43,7 +43,7 @@ struct CompatShareLink<Label: View>: View {
     let item: URL
     @ViewBuilder var label: () -> Label
 
-    @State private var showActivitySheet = false
+    @State var showActivitySheet = false
 
     var body: some View {
         if #available(iOS 16.0, *) {
