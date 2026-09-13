@@ -1,4 +1,4 @@
-name: Convert SwiftUI to Jetpack Compose
+name: Convert SwiftUI to Android via Skip
 
 on:
   workflow_dispatch: {}
@@ -12,23 +12,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Skip CLI
-        run: npm install -g @skip-cli/cli
-
-      - name: Convert SwiftUI to Jetpack Compose
+      - name: Setup Xcode
         run: |
-          cd ITDOApp
-          skip convert --output ../ITDOAndroidConverted
-        working-directory: .
+          XCODE_PATH=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+          swift --version
 
-      - name: Upload converted code
+      - name: Install Skip
+        run: brew install skiptools/skip/skip
+
+      - name: Verify Skip
+        run: skip --version
+
+      - name: Generate Xcode project with XcodeGen
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build Android with Skip
+        run: |
+          skip build --platform android --skip-ios --skip-web
+          ls -la android/ 2>/dev/null || ls -la ITDOAndroid/ 2>/dev/null || echo "Checking output dirs..."
+          find . -name "*.apk" -o -name "*.aab" -o -name "build.gradle*" 2>/dev/null | head -20
+
+      - name: Upload Android project
         uses: actions/upload-artifact@v4
         with:
-          name: ITDOAndroid-converted
-          path: ITDOAndroidConverted/
+          name: ITDOAndroid-project
+          path: |
+            android/
+            ITDOAndroid/
+            ITDOAndroidConverted/
+            *.apk
+            *.aab
           retention-days: 30
