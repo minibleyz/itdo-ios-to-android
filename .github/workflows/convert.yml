@@ -19,51 +19,52 @@ jobs:
           install-swift-android-sdk: 'true'
           verbose: 'true'
 
-      - name: Clean Skip cache
+      # Шаг 1: убираем private во всех Swift-файлах
+      - name: Remove all 'private' from Swift files
         run: |
-          rm -rf .build/plugins/outputs/ || true
-          rm -rf skip-export/ || true
-
-      # Шаг 1: исправляем исходники в корне
-      - name: Fix private views in source
-        run: |
-          echo "🔍 Ищем private View в исходниках..."
+          echo "🔍 Убираем все 'private' из Swift-файлов..."
           CHANGED=0
-          for file in $(find . -name "*.swift" -type f -not -path "./.build/*" -not -path "./ShareExtension/*" -not -path "./ITDOAppWidget/*"); do
-            if grep -qE 'private (struct [A-Za-z0-9_]*View|var [a-zA-Z0-9_]+: some View)' "$file"; then
-              perl -i -pe 's/\bprivate\s+(struct\s+\w*View)/$1/g' "$file"
-              perl -i -pe 's/\bprivate\s+(var\s+\w+:\s*some\s+View)/$1/g' "$file"
+
+          for file in $(find . -name "*.swift" -type f \
+            -not -path "./.build/*" \
+            -not -path "./skip-export/*"); do
+
+            if grep -q '\bprivate\b' "$file"; then
+              echo "✏️  Обрабатываем: $file"
+              # Убираем слово private везде, где оно встречается как отдельное слово
+              # (не трогаем часть других слов вроде "privateKey")
+              perl -i -pe 's/\bprivate\s+//g' "$file"
               CHANGED=$((CHANGED + 1))
             fi
           done
-          echo "✅ Исправлено файлов в исходниках: $CHANGED"
 
-      # Шаг 2: запускаем skip export (он скопирует исправленные исходники)
-      - name: Export Android project (first attempt)
-        continue-on-error: true
-        run: skip export
+          echo "✅ Обработано файлов: $CHANGED"
 
-      # Шаг 3: если упало — исправляем копии в .build и пробуем снова
-      - name: Fix private views in generated sources
-        if: failure()
+          # Проверка: остались ли private
+          echo ""
+          echo "🔎 Проверка: остались ли 'private' в Swift-файлах?"
+          REMAINING=$(grep -rEn '\bprivate\b' \
+            --include="*.swift" \
+            --exclude-dir=".build" \
+            --exclude-dir="skip-export" . || true)
+          if [ -n "$REMAINING" ]; then
+            echo "⚠️  Всё ещё найдены 'private':"
+            echo "$REMAINING"
+          else
+            echo "👍 Приватных объявлений не осталось"
+          fi
+
+      # Шаг 2: показываем diff (для отладки)
+      - name: Show changes
         run: |
-          echo "🔧 Исправляем private View в сгенерированных копиях..."
-          CHANGED=0
-          for file in $(find .build/plugins/outputs -name "*.swift" -type f 2>/dev/null); do
-            if grep -qE 'private (struct [A-Za-z0-9_]*View|var [a-zA-Z0-9_]+: some View)' "$file"; then
-              echo "✏️  Исправляем: $file"
-              perl -i -pe 's/\bprivate\s+(struct\s+\w*View)/$1/g' "$file"
-              perl -i -pe 's/\bprivate\s+(var\s+\w+:\s*some\s+View)/$1/g' "$file"
-              CHANGED=$((CHANGED + 1))
-            fi
-          done
-          echo "✅ Исправлено файлов в .build: $CHANGED"
+          echo "📋 Изменённые файлы:"
+          git diff --stat
 
-      # Шаг 4: повторяем экспорт
-      - name: Export Android project (retry)
-        if: failure()
+      # Шаг 3: экспорт
+      - name: Export Android project
         run: skip export
 
+      # Шаг 4: загружаем результат
       - name: Upload Android project
         uses: actions/upload-artifact@v4
         with:
