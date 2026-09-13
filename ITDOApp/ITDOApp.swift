@@ -9,13 +9,13 @@ extension Notification.Name {
 
 @main
 struct ITDOApp: App {
-    @StateObject private var session = SessionStore()
-    @StateObject private var rtc = WebRTCManager.shared
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var showIncomingCall = false
+    @StateObject var session = SessionStore()
+    @StateObject var rtc = WebRTCManager.shared
+    @Environment(\.scenePhase) var scenePhase
+    @State var showIncomingCall = false
     // Тумблер "Тёмная тема" в настройках менял AppStorage("dark_mode"), но здесь
     // всегда был захардкожен .dark — поэтому светлая тема никогда не включалась.
-    @AppStorage("dark_mode") private var isDarkMode = true
+    @AppStorage("dark_mode") var isDarkMode = true
 
     // MARK: - Код-пароль (PasscodeLock) + размытие в App Switcher
     // isLocked стартует сразу true, если код-пароль включён — тогда холодный
@@ -32,14 +32,14 @@ struct ITDOApp: App {
         PasscodeLock.migrateLegacyKeychainItemsIfNeeded()
     }()
 
-    @State private var isLocked: Bool = {
+    @State var isLocked: Bool = {
         _ = ITDOApp.didMigrateLegacyKeychain
         return PasscodeLock.isEnabled
     }()
-    @State private var showPrivacyBlur = false
-    @State private var backgroundedAt: Date?
-    @AppStorage("passcode_auto_lock_seconds") private var autoLockSeconds: Double = 0
-    @AppStorage("passcode_biometrics_enabled") private var biometricsEnabled = false
+    @State var showPrivacyBlur = false
+    @State var backgroundedAt: Date?
+    @AppStorage("passcode_auto_lock_seconds") var autoLockSeconds: Double = 0
+    @AppStorage("passcode_biometrics_enabled") var biometricsEnabled = false
 
     var body: some Scene {
         WindowGroup {
@@ -48,14 +48,9 @@ struct ITDOApp: App {
                     .environmentObject(session)
                     .preferredColorScheme(isDarkMode ? .dark : .light)
                     .task {
-                        // Стартуем мониторинг сети как можно раньше — до
-                        // restoreSession() в RootView, — чтобы холодный запуск
-                        // без интернета сразу знал об этом и не пытался
-                        // разлогинить пользователя по таймауту (см. NetworkMonitor.swift).
                         NetworkMonitor.shared.start()
                     }
                     .onChange(of: rtc.callState) { _, newState in
-                        // PushKit получил входящий звонок — показываем UI
                         if case .incomingRinging = newState {
                             showIncomingCall = true
                         }
@@ -72,28 +67,16 @@ struct ITDOApp: App {
                         }
                     }
 
-                // Размытие поверх всего контента, пока приложение сворачивается —
-                // защищает от подглядывания через App Switcher/Recents. Показывается
-                // только когда включён код-пароль (см. PasscodeSettingsView).
                 if showPrivacyBlur {
                     PrivacyBlurOverlay()
                         .transition(.opacity)
                         .zIndex(10)
                 }
 
-                // Экран блокировки — полноэкранный, без возможности закрыть свайпом
-                // или тапом мимо (allowCancel: false), перекрывает весь UI до
-                // правильного ввода кода или успешной биометрии. Обёрнут в
-                // .screenCaptureProtected(), чтобы код-пароль нельзя было
-                // заскриншотить/записать (см. ScreenCaptureProtection.swift).
                 if isLocked {
                     PasscodeUnlockView(
                         allowBiometrics: biometricsEnabled,
                         onForgotPasscode: {
-                            // Пользователь не может подобрать код и не помнит его —
-                            // единственный выход: полностью сбросить локальный
-                            // код-пароль и разлогинить, чтобы не блокировать
-                            // доступ к приложению навсегда.
                             PasscodeLock.disable()
                             biometricsEnabled = false
                             session.logout()
@@ -120,32 +103,18 @@ struct ITDOApp: App {
                     }
                     self.backgroundedAt = nil
 
-                    // Share Extension мог положить текст/ссылку в App Group,
-                    // пока приложение было закрыто/в фоне (см.
-                    // ShareExtension/ShareViewController.swift +
-                    // SharedContainer.swift). Забираем его при каждом
-                    // возврате на передний план и уведомляем ленту — она
-                    // откроет композер поста с уже подставленным текстом
-                    // (см. .onReceive(.pendingShareReceived) в FeedView.swift).
                     if let sharedText = SharedContainer.consumePendingShare() {
                         NotificationCenter.default.post(name: .pendingShareReceived, object: sharedText)
                     }
 
-                    // Приложение на переднем плане — подключаем WS
                     if session.currentUser != nil {
                         WSClient.shared.connect()
                         Task { try? await APIClient.shared.setOnline() }
-                        // Вернулись из фона/офлайна — досинхронизируем
-                        // профиль, если в прошлый раз не получилось.
                         if session.isOfflineSession {
                             Task { await session.refreshProfile() }
                         }
                     }
                 case .inactive:
-                    // .inactive — момент, когда система делает снимок для
-                    // App Switcher (и при звонках/шторках). Показываем блюр
-                    // сразу здесь, а не в .background, чтобы он успел
-                    // попасть в сам снимок.
                     if PasscodeLock.isEnabled {
                         showPrivacyBlur = true
                     }
@@ -153,16 +122,12 @@ struct ITDOApp: App {
                     if PasscodeLock.isEnabled {
                         backgroundedAt = Date()
                     }
-                    // Ушли в фон — отключаем WS
                     WSClient.shared.disconnect()
                     Task { try? await APIClient.shared.setOffline() }
                 @unknown default:
                     break
                 }
             }
-            // Face ID зациклился (см. PasscodeLock.isBiometricSafeMode) —
-            // синхронизируем тумблер в настройках, чтобы он не показывал
-            // "включён", пока биометрия реально не вызывается.
             .onReceive(NotificationCenter.default.publisher(for: .passcodeBiometricSafeModeEnabled)) { _ in
                 biometricsEnabled = false
             }
@@ -189,7 +154,6 @@ struct IncomingCallScreen: View {
             VStack(spacing: 32) {
                 Spacer()
 
-                // Аватар
                 Circle()
                     .fill(DesignTokens.accentPrimary.opacity(0.2))
                     .frame(width: 100, height: 100)
@@ -211,9 +175,7 @@ struct IncomingCallScreen: View {
 
                 Spacer()
 
-                // Кнопки
                 HStack(spacing: 60) {
-                    // Отклонить
                     Button {
                         rtc.declineCall(callId: callId)
                         onDismiss()
@@ -231,7 +193,6 @@ struct IncomingCallScreen: View {
                         }
                     }
 
-                    // Принять
                     Button {
                         rtc.acceptCall(callId: callId)
                         onDismiss()
