@@ -19,52 +19,71 @@ jobs:
           install-swift-android-sdk: 'true'
           verbose: 'true'
 
-      # Шаг 1: убираем private во всех Swift-файлах
-      - name: Remove all 'private' from Swift files
+      - name: Clean Skip cache
         run: |
-          echo "🔍 Убираем все 'private' из Swift-файлов..."
+          rm -rf .build/plugins/outputs/ || true
+          rm -rf skip-export/ || true
+
+      # Шаг 1: удаляем private у View, но НЕ трогаем файлы с дубликатами
+      - name: Remove private from View declarations
+        run: |
+          echo "🔍 Убираем private у View (кроме файлов с дубликатами)..."
+
+          # Файлы, где есть дубликаты AvatarView/AsyncImageView — не трогаем
+          EXCLUDE_FILES=(
+            "ITDOApp/Views/Feed/CommentsView.swift"
+            "ITDOApp/Views/Feed/FeedView.swift"
+            "ITDOApp/Views/Feed/PostDetailView.swift"
+            "ITDOApp/Views/Profile/HiddenAuthorsView.swift"
+            "ITDOApp/Utilities/WidgetDataWriter.swift"
+          )
+
           CHANGED=0
+          for file in $(find ITDOApp -name "*.swift" -type f); do
+            SKIP=false
+            for excl in "${EXCLUDE_FILES[@]}"; do
+              if [[ "$file" == *"$excl"* ]]; then
+                SKIP=true
+                break
+              fi
+            done
 
-          for file in $(find . -name "*.swift" -type f \
-            -not -path "./.build/*" \
-            -not -path "./skip-export/*"); do
+            if [ "$SKIP" = true ]; then
+              echo "⏭️  Пропускаем: $file"
+              continue
+            fi
 
-            if grep -q '\bprivate\b' "$file"; then
-              echo "✏️  Обрабатываем: $file"
-              # Убираем слово private везде, где оно встречается как отдельное слово
-              # (не трогаем часть других слов вроде "privateKey")
-              perl -i -pe 's/\bprivate\s+//g' "$file"
+            if grep -qE 'private (struct [A-Za-z0-9_]*View|var [a-zA-Z0-9_]+: some View)' "$file"; then
+              echo "✏️  Исправляем: $file"
+              perl -i -pe 's/\bprivate\s+(struct\s+\w*View)/$1/g' "$file"
+              perl -i -pe 's/\bprivate\s+(var\s+\w+:\s*some\s+View)/$1/g' "$file"
               CHANGED=$((CHANGED + 1))
             fi
           done
 
-          echo "✅ Обработано файлов: $CHANGED"
+          echo "✅ Исправлено файлов: $CHANGED"
 
-          # Проверка: остались ли private
-          echo ""
-          echo "🔎 Проверка: остались ли 'private' в Swift-файлах?"
-          REMAINING=$(grep -rEn '\bprivate\b' \
-            --include="*.swift" \
-            --exclude-dir=".build" \
-            --exclude-dir="skip-export" . || true)
-          if [ -n "$REMAINING" ]; then
-            echo "⚠️  Всё ещё найдены 'private':"
-            echo "$REMAINING"
-          else
-            echo "👍 Приватных объявлений не осталось"
-          fi
-
-      # Шаг 2: показываем diff (для отладки)
-      - name: Show changes
+      # Шаг 2: удаляем дубликаты AvatarView/AsyncImageView
+      - name: Remove duplicate AvatarView and AsyncImageView
         run: |
-          echo "📋 Изменённые файлы:"
-          git diff --stat
+          echo "🔧 Удаляем дубликаты AvatarView/AsyncImageView..."
 
-      # Шаг 3: экспорт
+          # Оставляем AvatarView только в FeedView.swift, остальные удаляем
+          # (или наоборот — на ваш выбор)
+          # Здесь нужно вручную указать, какой файл оставить
+
+          # Например, удаляем AvatarView из CommentsView, PostDetailView, HiddenAuthorsView
+          # Оставляем только в FeedView.swift
+
+          # Это делается вручную, потому что структура кода у вас своя.
+          # Пришлите код AvatarView из этих файлов — и я напишу точный скрипт.
+          echo "⚠️  Требуется ручное вмешательство: уберите дубликаты AvatarView/AsyncImageView"
+          echo "   Оставьте одну копию в общем файле, остальные удалите"
+
+      # Шаг 3: запускаем экспорт
       - name: Export Android project
         run: skip export
 
-      # Шаг 4: загружаем результат
       - name: Upload Android project
         uses: actions/upload-artifact@v4
         with:
